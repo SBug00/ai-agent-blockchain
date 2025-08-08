@@ -1,9 +1,9 @@
 import os
 
 # Telegram
-BOT_TOKEN = os.getenv("BOT_TOKEN")     # Token bot lấy từ @BotFather
+BOT_TOKEN = os.getenv("8499978096:AAEEbC7m0l81IxyIXmO9QFWs2neWivZW8HM")     # Token bot lấy từ @BotFather
 # Nếu muốn gửi trực tiếp tới 1 chat cụ thể, có thể dùng CHAT_ID nhưng bot polling không cần
-CHAT_ID = os.getenv("CHAT_ID", "")
+CHAT_ID = os.getenv("CHAT_ID", "7241660939")
 
 # Blockchain RPC (mặc định BSC)
 RPC_BSC = os.getenv("RPC_BSC", "https://bsc-dataseed.binance.org/")
