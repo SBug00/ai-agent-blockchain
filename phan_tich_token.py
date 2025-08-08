@@ -64,6 +64,36 @@ def phan_tich_co_ban_token(contract_address: str):
         "reasons": reasons,
         "notes": info.get("notes", [])
     }
+    else:
+        res["notes"].append("Không có tokentx dữ liệu hoặc lỗi API")
+    return res
+
+def phan_tich_co_ban_token(contract_address: str):
+    info = thong_tin_token_contract(contract_address)
+    suspicious = False
+    reasons = []
+
+    tot = info.get("totalTransfers_sample", 0)
+    if tot == 0:
+        suspicious = True
+        reasons.append("Không có transfer mẫu → có thể mới hoặc không hoạt động")
+    elif tot <= 3:
+        reasons.append("Hoạt động rất thấp (<=3 transfers trong mẫu)")
+
+    if not info.get("symbol"):
+        suspicious = True
+        reasons.append("Không lấy được symbol từ transaction -> khả năng bất thường")
+
+    return {
+        "dia_chi": contract_address,
+        "name": info.get("name"),
+        "symbol": info.get("symbol"),
+        "decimals": info.get("decimals"),
+        "totalTransfers_sample": tot,
+        "suspicious": suspicious,
+        "reasons": reasons,
+        "notes": info.get("notes", [])
+    }
             ket_qua["decimals"] = token_info.get("divisor")  # divisor ~ decimals
             ket_qua["total_supply"] = token_info.get("totalSupply")
 
