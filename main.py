@@ -1,91 +1,65 @@
 # main.py
 import os
-import time
 import threading
-from flask import Flask, request
+import time
+from flask import Flask
 
-from canh_bao_telegram import bot, gui_telegram_mau, reply_text
+from cau_hinh import DELAY_SECONDS, FILE_MEMORY
+from bo_nho import khoi_tao_bo_nho, lay_watchlist, them_item
 from phan_tich_token import phan_tich_co_ban_token
-from bo_nho import them_item, danh_sach_tom_tat, gan_nhan, khoi_tao_bo_nho
-from tro_ly_gpt import goi_gpt_phan_tich
-from cau_hinh import DELAY_SECONDS, DUNG_GPT
+from canh_bao_telegram import bot, gui_telegram
 
-# Danh sách quét mẫu
-DANH_SACH_QUET = [
-    "0x0000000000000000000000000000000000000000",
-    "0x1111111111111111111111111111111111110000"
-]
-
-# Flask app cho Render
 app = Flask(__name__)
 
 def vong_quet():
     while True:
         try:
-            for dia in DANH_SACH_QUET:
-                ph = phan_tich_co_ban_token(dia)
-                item_id = them_item("token", ph)
-                gpt_kq = None
-                if DUNG_GPT:
-                    tomtat = f"Phân tích token: {ph}"
-                    gpt_kq = goi_gpt_phan_tich(tomtat)
-                msg = f"🔔 Phát hiện token mới (id={item_id})\nĐịa chỉ: {dia}\nPhân tích sơ: {ph['notes']}"
-                if gpt_kq:
-                    msg += f"\n\nGPT: {gpt_kq[:400]}"
-                gui_telegram_mau(msg)
+            wl = lay_watchlist()
+            if not wl:
+                # nếu ko có watch, ngủ rồi loop
+                time.sleep(DELAY_SECONDS)
+                continue
+            for addr in wl:
+                ph = phan_tich_co_ban_token(addr)
+                item_id = them_item("watch_scan", ph)
+                if ph.get("suspicious"):
+                    msg = f"🔔 Phát hiện khả nghi (id={item_id})\nĐịa chỉ: {addr}\nLý do: {ph.get('reasons')}\nTên/Symbol: {ph.get('name')}/{ph.get('symbol')}"
+                    gui_telegram(msg)
+                else:
+                    # debug log hoặc tắt
+                    print(f"[INFO] Quét {addr}: không đáng ngại")
             time.sleep(DELAY_SECONDS)
         except Exception as e:
             print("Lỗi vòng quét:", e)
             time.sleep(30)
 
-# Handlers
-@bot.message_handler(commands=["report"])
-def cmd_report(message):
-    items = danh_sach_tom_tat(10)
-    txt = "📋 Báo cáo ngắn — các item gần nhất:\n"
-    for it in items:
-        txt += f"- id:{it['id']} type:{it['type']} label:{it['label']} meta:{it['meta'].get('dia_chi','')}\n"
-    reply_text(message, txt)
-
-@bot.message_handler(commands=["memory"])
-def cmd_memory(message):
-    items = danh_sach_tom_tat(5)
-    txt = "🧠 Bộ nhớ (5 item mới):\n"
-    for it in items:
-        txt += f"id:{it['id']} type:{it['type']} label:{it['label']} meta:{it['meta']}\n"
-    reply_text(message, txt)
-
-@bot.message_handler(commands=["learn"])
-def cmd_learn(message):
-    parts = message.text.split(" ", 2)
-    if len(parts) < 3:
-        reply_text(message, "Cú pháp: /learn <id> <kết luận>")
-        return
-    try:
-        item_id = int(parts[1])
-        label = parts[2].strip()
-        ok = gan_nhan(item_id, label)
-        if ok:
-            reply_text(message, f"Đã gán nhãn id {item_id} => {label}")
-        else:
-            reply_text(message, "Không tìm thấy item id đó.")
-    except:
-        reply_text(message, "ID không hợp lệ.")
-
-# Route webhook cho Telegram
-@app.route(f"/{os.getenv('TELEGRAM_TOKEN')}", methods=["POST"])
-def webhook():
-    update = request.stream.read().decode("utf-8")
-    bot.process_new_updates([bot._process_update(update)])
-    return "OK", 200
-
 @app.route("/")
 def home():
-    return "Bot AI Agent đang chạy trên Render!"
+    return "AI Agent (Render) — alive"
+
+@app.route("/scan/<addr>")
+def scan(addr):
+    ph = phan_tich_co_ban_token(addr)
+    item_id = them_item("manual_scan", ph)
+    txt = f"Scan id={item_id} addr={addr} suspicious={ph.get('suspicious')} reasons={ph.get('reasons')}"
+    gui_telegram(txt)
+    return txt, 200
 
 if __name__ == "__main__":
+    # khởi tạo memory file nếu chưa có
     khoi_tao_bo_nho()
-    threading.Thread(target=vong_quet, daemon=True).start()
 
-    PORT = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=PORT)
+    # start thread quét nền
+    t = threading.Thread(target=vong_quet, daemon=True)
+    t.start()
+
+    # start bot polling trong thread khác
+    def bot_thread():
+        bot.infinity_polling(timeout=10, long_polling_timeout=5)
+
+    pb = threading.Thread(target=bot_thread, daemon=True)
+    pb.start()
+
+    # run Flask app (Render cung cấp PORT env)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
