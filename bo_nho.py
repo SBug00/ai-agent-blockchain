@@ -5,35 +5,33 @@ class BoNho:
     FILE_PATH = "memory.json"
 
     def __init__(self):
-        self.data = {
-            "checked_transactions": set(),
-            "learned_phrases": []
-        }
+        self.data = {"checked_transactions": {}}
         self.load()
 
     def load(self):
         if os.path.exists(self.FILE_PATH):
             try:
                 with open(self.FILE_PATH, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    # Lưu checked_transactions dưới dạng list, convert lại thành set
-                    self.data["checked_transactions"] = set(data.get("checked_transactions", []))
-                    self.data["learned_phrases"] = data.get("learned_phrases", [])
+                    self.data = json.load(f)
             except Exception as e:
-                print(f"Load bộ nhớ lỗi: {e}")
+                print(f"Lỗi load bộ nhớ: {e}")
 
     def save(self):
         try:
             with open(self.FILE_PATH, "w", encoding="utf-8") as f:
-                # Convert set sang list để json được
-                data_to_save = {
-                    "checked_transactions": list(self.data["checked_transactions"]),
-                    "learned_phrases": self.data["learned_phrases"]
-                }
-                json.dump(data_to_save, f, ensure_ascii=False, indent=2)
+                json.dump(self.data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"Lưu bộ nhớ lỗi: {e}")
+            print(f"Lỗi lưu bộ nhớ: {e}")
 
+    def has_transaction(self, tx_hash):
+        return tx_hash in self.data["checked_transactions"]
+
+    def add_transaction(self, tx_hash, analysis_text):
+        self.data["checked_transactions"][tx_hash] = analysis_text
+        self.save()
+
+    def get_analysis(self, tx_hash):
+        return self.data["checked_transactions"].get(tx_hash)
     def add_transaction(self, tx_hash):
         self.data["checked_transactions"].add(tx_hash)
         self.save()
