@@ -1,10 +1,11 @@
-from telegram import Bot
+import requests
 from cau_hinh import CauHinh
 
-class CanhBaoTelegram:
+class PhanTichToken:
+
     def __init__(self):
-        self.bot = Bot(token=CauHinh.TELEGRAM_BOT_TOKEN)
-        self.chat_id = CauHinh.TELEGRAM_CHAT_ID
+        self.api_url = CauHinh.BLOCKCHAIN_API_URL
+        self.api_key = CauHinh.BLOCKCHAIN_API_KEY
 
     def gui_tin_nhan(self, message):
         try:
