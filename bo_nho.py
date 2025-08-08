@@ -1,39 +1,52 @@
-# bo_nho.py
-import json, os, time
-from cau_hinh import FILE_MEMORY
+import json
+import os
 
-def khoi_tao_bo_nho():
-    if not os.path.exists(FILE_MEMORY):
-        data = {"watchlist": [], "items": []}
-        _luu(data)
+class BoNho:
+    FILE_PATH = "memory.json"
 
-def _doc():
-    khoi_tao_bo_nho()
-    with open(FILE_MEMORY, "r", encoding="utf-8") as f:
-        return json.load(f)
+    def __init__(self):
+        self.data = {
+            "checked_transactions": set(),
+            "learned_phrases": []
+        }
+        self.load()
 
-def _luu(data):
-    with open(FILE_MEMORY, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    def load(self):
+        if os.path.exists(self.FILE_PATH):
+            try:
+                with open(self.FILE_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    # Lưu checked_transactions dưới dạng list, convert lại thành set
+                    self.data["checked_transactions"] = set(data.get("checked_transactions", []))
+                    self.data["learned_phrases"] = data.get("learned_phrases", [])
+            except Exception as e:
+                print(f"Load bộ nhớ lỗi: {e}")
 
-def them_watch(address: str) -> bool:
-    data = _doc()
-    if address not in data["watchlist"]:
-        data["watchlist"].append(address)
-        _luu(data)
-        return True
-    return False
+    def save(self):
+        try:
+            with open(self.FILE_PATH, "w", encoding="utf-8") as f:
+                # Convert set sang list để json được
+                data_to_save = {
+                    "checked_transactions": list(self.data["checked_transactions"]),
+                    "learned_phrases": self.data["learned_phrases"]
+                }
+                json.dump(data_to_save, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Lưu bộ nhớ lỗi: {e}")
 
-def xoa_watch(address: str) -> bool:
-    data = _doc()
-    if address in data["watchlist"]:
-        data["watchlist"].remove(address)
-        _luu(data)
-        return True
-    return False
+    def add_transaction(self, tx_hash):
+        self.data["checked_transactions"].add(tx_hash)
+        self.save()
 
-def lay_watchlist():
-    data = _doc()
+    def has_transaction(self, tx_hash):
+        return tx_hash in self.data["checked_transactions"]
+
+    def add_learned_phrase(self, phrase):
+        self.data["learned_phrases"].append(phrase)
+        self.save()
+
+    def get_learned_phrases(self):
+        return self.data["learned_phrases"]
     return data.get("watchlist", [])
 
 def them_item(type_, meta: dict):
