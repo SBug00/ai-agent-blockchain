@@ -4,56 +4,61 @@ from cau_hinh import FILE_MEMORY
 
 def khoi_tao_bo_nho():
     if not os.path.exists(FILE_MEMORY):
-        with open(FILE_MEMORY, "w") as f:
-            json.dump({"items": []}, f)
+        data = {"watchlist": [], "items": []}
+        _luu(data)
 
-def nap_bo_nho():
+def _doc():
     khoi_tao_bo_nho()
-    with open(FILE_MEMORY, "r") as f:
+    with open(FILE_MEMORY, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def luu_bo_nho(data):
-    with open(FILE_MEMORY, "w") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+def _luu(data):
+    with open(FILE_MEMORY, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-def them_item(typ, meta):
-    """
-    typ: 'token' / 'alert' / 'gpt_query'
-    meta: dict chứa thông tin tóm tắt (địa_chi, ten, notes, timestamp...)
-    """
-    data = nap_bo_nho()
+def them_watch(address: str) -> bool:
+    data = _doc()
+    if address not in data["watchlist"]:
+        data["watchlist"].append(address)
+        _luu(data)
+        return True
+    return False
+
+def xoa_watch(address: str) -> bool:
+    data = _doc()
+    if address in data["watchlist"]:
+        data["watchlist"].remove(address)
+        _luu(data)
+        return True
+    return False
+
+def lay_watchlist():
+    data = _doc()
+    return data.get("watchlist", [])
+
+def them_item(type_, meta: dict):
+    data = _doc()
     item = {
-        "id": int(time.time()*1000),
-        "type": typ,
+        "id": int(time.time() * 1000),
+        "type": type_,
         "meta": meta,
-        "label": None,       # cho phép bạn gán nhãn (learn)
-        "created_at": int(time.time())
+        "label": None,
+        "ts": int(time.time())
     }
     data["items"].append(item)
-    luu_bo_nho(data)
+    _luu(data)
     return item["id"]
 
 def danh_sach_tom_tat(limit=20):
-    data = nap_bo_nho()
-    items = data.get("items", [])
-    # trả về ngược (mới trước)
-    items = sorted(items, key=lambda x: x["created_at"], reverse=True)[:limit]
-    summary = []
-    for it in items:
-        s = {
-            "id": it["id"],
-            "type": it["type"],
-            "label": it.get("label"),
-            "meta": it["meta"]
-        }
-        summary.append(s)
-    return summary
+    data = _doc()
+    items = sorted(data.get("items", []), key=lambda x: x["ts"], reverse=True)
+    return items[:limit]
 
-def gan_nhan(item_id, label):
-    data = nap_bo_nho()
+def gan_nhan(item_id: int, label: str) -> bool:
+    data = _doc()
     for it in data["items"]:
         if it["id"] == item_id:
             it["label"] = label
-            luu_bo_nho(data)
+            _luu(data)
             return True
     return False
