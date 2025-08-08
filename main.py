@@ -1,39 +1,56 @@
-# main.py
-import os
-import threading
 import time
-from flask import Flask
+import schedule
 
-from cau_hinh import DELAY_SECONDS, FILE_MEMORY
-from bo_nho import khoi_tao_bo_nho, lay_watchlist, them_item
-from phan_tich_token import phan_tich_co_ban_token
-from canh_bao_telegram import bot, gui_telegram
+from cau_hinh import CauHinh
+from bo_nho import BoNho
+from phan_tich_token import PhanTichToken
+from canh_bao_telegram import CanhBaoTelegram
 
-app = Flask(__name__)
+# Địa chỉ ví cần giám sát, bạn thay đổi nếu muốn
+WATCH_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"  # Ví dụ là ví của Binance
 
-def vong_quet():
+def job():
+    print("Bắt đầu chạy kiểm tra giao dịch mới...")
+    bo_nho = BoNho()
+    ptt = PhanTichToken()
+    telegram = CanhBaoTelegram()
+
+    transactions = ptt.lay_giao_dich_moi(WATCH_ADDRESS)
+
+    if not transactions:
+        print("Không lấy được giao dịch mới.")
+        return
+
+    for tx in transactions:
+        tx_hash = tx["hash"]
+        if not bo_nho.has_transaction(tx_hash):
+            ket_qua = ptt.phan_tich_giao_dich(tx)
+            bo_nho.add_transaction(tx_hash)
+
+            # Nếu giao dịch giá trị cao -> gửi cảnh báo
+            if ket_qua["is_high_value"]:
+                message = (
+                    f"⚠️ Phát hiện giao dịch lớn!\n"
+                    f"TxHash: {ket_qua['tx_hash']}\n"
+                    f"Từ: {ket_qua['from']}\n"
+                    f"Đến: {ket_qua['to']}\n"
+                    f"Giá trị: {ket_qua['value_eth']:.2f} ETH"
+                )
+                telegram.gui_tin_nhan(message)
+                print("Đã gửi cảnh báo Telegram.")
+    print("Kiểm tra kết thúc.")
+
+def main():
+    print("AI agent bắt đầu chạy...")
+    job()  # Chạy lần đầu
+    schedule.every(CauHinh.POLL_INTERVAL_SECONDS).seconds.do(job)
+
     while True:
-        try:
-            wl = lay_watchlist()
-            if not wl:
-                # nếu ko có watch, ngủ rồi loop
-                time.sleep(DELAY_SECONDS)
-                continue
-            for addr in wl:
-                ph = phan_tich_co_ban_token(addr)
-                item_id = them_item("watch_scan", ph)
-                if ph.get("suspicious"):
-                    msg = f"🔔 Phát hiện khả nghi (id={item_id})\nĐịa chỉ: {addr}\nLý do: {ph.get('reasons')}\nTên/Symbol: {ph.get('name')}/{ph.get('symbol')}"
-                    gui_telegram(msg)
-                else:
-                    # debug log hoặc tắt
-                    print(f"[INFO] Quét {addr}: không đáng ngại")
-            time.sleep(DELAY_SECONDS)
-        except Exception as e:
-            print("Lỗi vòng quét:", e)
-            time.sleep(30)
+        schedule.run_pending()
+        time.sleep(1)
 
-@app.route("/")
+if __name__ == "__main__":
+    main()
 def home():
     return "AI Agent (Render) — alive"
 
