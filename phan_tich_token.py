@@ -1,5 +1,5 @@
 import requests
-from cau_hinh import BLOCKCHAIN_API_URL, BLOCKCHAIN_API_KEY
+from CauHinh import BLOCKCHAIN_API_URL, BLOCKCHAIN_API_KEY
 
 class PhanTichToken:
 
