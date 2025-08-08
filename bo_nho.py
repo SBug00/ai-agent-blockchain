@@ -45,7 +45,6 @@ class BoNho:
 
     def get_learned_phrases(self):
         return self.data["learned_phrases"]
-    #return data.get("watchlist", [])
 
 def them_item(type_, meta: dict):
     data = _doc()
