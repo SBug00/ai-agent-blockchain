@@ -33,23 +33,23 @@ class PhanTichToken:
             return []
 
     def phan_tich_giao_dich(self, tx):
-        """
-        Phân tích giao dịch đơn lẻ
-        Trả về dict kết quả phân tích hoặc cảnh báo
-        """
-        # Ví dụ giả lập: nếu giao dịch có giá trị lớn hơn 10 ETH thì cảnh báo
-        value_eth = int(tx["value"]) / 1e18
-        result = {
-            "tx_hash": tx["hash"],
-            "from": tx["from"],
-            "to": tx["to"],
-            "value_eth": value_eth,
-            "is_high_value": value_eth > 10
-        }
-        return result
-    else:
-        res["notes"].append("Không có tokentx dữ liệu hoặc lỗi API")
-    return res
+    """
+    Phân tích giao dịch đơn lẻ
+    Trả về dict kết quả phân tích hoặc cảnh báo
+    """
+    if tx is None:
+        res = {"notes": ["Không có tokentx dữ liệu hoặc lỗi API"]}
+        return res
+
+    value_eth = int(tx["value"]) / 1e18
+    result = {
+        "tx_hash": tx["hash"],
+        "from": tx["from"],
+        "to": tx["to"],
+        "value_eth": value_eth,
+        "is_high_value": value_eth > 10
+    }
+    return result
 
 def phan_tich_co_ban_token(contract_address: str):
     info = thong_tin_token_contract(contract_address)
