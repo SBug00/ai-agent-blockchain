@@ -1,39 +1,16 @@
-# canh_bao_telegram.py
-import telebot
-from cau_hinh import BOT_TOKEN, CHAT_ID
-from bo_nho import them_watch, xoa_watch, lay_watchlist, them_item, danh_sach_tom_tat, gan_nhan
-import re
+from telegram import Bot
+from cau_hinh import CauHinh
 
-if not BOT_TOKEN:
-    raise Exception("Bạn chưa cấu hình BOT_TOKEN trong biến môi trường.")
+class CanhBaoTelegram:
+    def __init__(self):
+        self.bot = Bot(token=CauHinh.TELEGRAM_BOT_TOKEN)
+        self.chat_id = CauHinh.TELEGRAM_CHAT_ID
 
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode="Markdown")
-
-def gui_telegram(text: str, chat_id: str = None) -> bool:
-    try:
-        target = chat_id if chat_id else CHAT_ID
-        if not target:
-            print("[LOG] CHAT_ID chưa cấu hình, in log thay vì gửi:")
-            print(text)
-            return False
-        bot.send_message(target, text)
-        return True
-    except Exception as e:
-        print("Lỗi gửi Telegram:", e)
-        return False
-
-@bot.message_handler(commands=["start"])
-def handle_start(message):
-    bot.reply_to(message, "🤖 AI Agent đã khởi động. /help để xem lệnh.")
-    # Optional: echo chat id để bạn copy vào Render env nếu bạn chưa set CHAT_ID
-    bot.send_message(message.chat.id, f"[INFO] Chat ID của bạn: `{message.chat.id}`", parse_mode="Markdown")
-
-@bot.message_handler(commands=["help"])
-def handle_help(message):
-    txt = (
-        "Các lệnh:\n"
-        "/help - trợ giúp\n"
-        "/add <address> - thêm watch token/ví\n"
+    def gui_tin_nhan(self, message):
+        try:
+            self.bot.send_message(chat_id=self.chat_id, text=message)
+        except Exception as e:
+            print(f"Lỗi gửi tin nhắn Telegram: {e}")
         "/remove <address> - xóa watch\n"
         "/list - xem watchlist\n"
         "/scan <address> - quét thủ công 1 address\n"
