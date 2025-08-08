@@ -1,11 +1,22 @@
+# cau_hinh.py
 import os
 
-# Thông tin Telegram bot
+# === Telegram ===
+# Mặc định dùng giá trị bạn cung cấp — khi deploy nên set biến môi trường BOT_TOKEN, CHAT_ID
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8499978096:AAEEbC7m0l81IxyIXmO9QFWs2neWivZW8HM")
-CHAT_ID   = os.getenv("CHAT_ID", "7241660939")
+CHAT_ID   = os.getenv("CHAT_ID", "7241660939")  # chat id bạn đã gửi
 
-# API Blockchain của bạn
-BLOCKCHAIN_API_KEY = os.getenv("BLOCKCHAIN_API_KEY", "69VNXYQWJVT9ZNZRRXE9MP9B8B4XNIEC7H")
+# === Etherscan API (dùng để query token/giao dịch) ===
+ETHERSCAN_API_KEY = os.getenv("ETHERSCAN_API_KEY", "69VNXYQWJVT9ZNZRRXE9MP9B8B4XNIEC7H")
+# Base URL Etherscan (Ethereum mainnet). Nếu bạn muốn BSC, đổi sang BscScan URL.
+ETHERSCAN_API_URL = os.getenv("ETHERSCAN_API_URL", "https://api.etherscan.io/api")
 
-# URL API
-BLOCKCHAIN_API_URL = "https://api.blockchair.com/ethereum"  # Ví dụ, tùy loại chain bạn muốn
+# === Thời gian quét (giây) ===
+DELAY_SECONDS = int(os.getenv("DELAY_SECONDS", "300"))  # mặc định 5 phút
+
+# === File lưu memory / watchlist ===
+FILE_MEMORY = os.getenv("FILE_MEMORY", "memory.json")   # lưu items + watchlist
+
+# === Dùng GPT? (hiện để False) ===
+DUNG_GPT = os.getenv("DUNG_GPT", "false").lower() in ("1","true","yes")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
