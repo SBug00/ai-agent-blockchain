@@ -1,33 +1,34 @@
 # main.py
-import time, threading
+import os
+import time
+import threading
+from flask import Flask, request
+
 from canh_bao_telegram import bot, gui_telegram_mau, reply_text
 from phan_tich_token import phan_tich_co_ban_token
-from bo_nho import them_item, danh_sach_tom_tat, gan_nhan, nap_bo_nho, khoi_tao_bo_nho
+from bo_nho import them_item, danh_sach_tom_tat, gan_nhan, khoi_tao_bo_nho
 from tro_ly_gpt import goi_gpt_phan_tich
 from cau_hinh import DELAY_SECONDS, DUNG_GPT
 
-# VÍ DỤ: danh sách địa chỉ tĩnh để quét (sau này thay bằng fetch token mới)
+# Danh sách quét mẫu
 DANH_SACH_QUET = [
     "0x0000000000000000000000000000000000000000",
     "0x1111111111111111111111111111111111110000"
 ]
 
+# Flask app cho Render
+app = Flask(__name__)
+
 def vong_quet():
-    """
-    Vòng quét chạy riêng (thread) — quét danh sách, phân tích, lưu vào memory và gửi alert.
-    """
     while True:
         try:
             for dia in DANH_SACH_QUET:
                 ph = phan_tich_co_ban_token(dia)
-                # Lưu vào bộ nhớ
                 item_id = them_item("token", ph)
-                # Gọi GPT nếu bật
                 gpt_kq = None
                 if DUNG_GPT:
                     tomtat = f"Phân tích token: {ph}"
                     gpt_kq = goi_gpt_phan_tich(tomtat)
-                # Tạo thông điệp gửi Telegram
                 msg = f"🔔 Phát hiện token mới (id={item_id})\nĐịa chỉ: {dia}\nPhân tích sơ: {ph['notes']}"
                 if gpt_kq:
                     msg += f"\n\nGPT: {gpt_kq[:400]}"
@@ -37,7 +38,7 @@ def vong_quet():
             print("Lỗi vòng quét:", e)
             time.sleep(30)
 
-# Handlers cho lệnh người dùng trên Telegram
+# Handlers
 @bot.message_handler(commands=["report"])
 def cmd_report(message):
     items = danh_sach_tom_tat(10)
@@ -56,7 +57,6 @@ def cmd_memory(message):
 
 @bot.message_handler(commands=["learn"])
 def cmd_learn(message):
-    # Cú pháp: /learn <id> <kết luận>
     parts = message.text.split(" ", 2)
     if len(parts) < 3:
         reply_text(message, "Cú pháp: /learn <id> <kết luận>")
@@ -72,14 +72,20 @@ def cmd_learn(message):
     except:
         reply_text(message, "ID không hợp lệ.")
 
-def bat_dau_bot():
-    # Khởi tạo memory
-    khoi_tao_bo_nho()
-    # Start thread quét nền
-    t = threading.Thread(target=vong_quet, daemon=True)
-    t.start()
-    # Start polling Telegram (blocking)
-    bot.polling(none_stop=True)
+# Route webhook cho Telegram
+@app.route(f"/{os.getenv('TELEGRAM_TOKEN')}", methods=["POST"])
+def webhook():
+    update = request.stream.read().decode("utf-8")
+    bot.process_new_updates([bot._process_update(update)])
+    return "OK", 200
+
+@app.route("/")
+def home():
+    return "Bot AI Agent đang chạy trên Render!"
 
 if __name__ == "__main__":
-    bat_dau_bot()
+    khoi_tao_bo_nho()
+    threading.Thread(target=vong_quet, daemon=True).start()
+
+    PORT = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=PORT)
