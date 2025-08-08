@@ -33,10 +33,6 @@ class PhanTichToken:
             return []
 
     def phan_tich_giao_dich(self, tx):
-    """
-    Phân tích giao dịch đơn lẻ
-    Trả về dict kết quả phân tích hoặc cảnh báo
-    """
     if tx is None:
         res = {"notes": ["Không có tokentx dữ liệu hoặc lỗi API"]}
         return res
