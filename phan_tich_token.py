@@ -1,39 +1,52 @@
-# phan_tich_token.py
 import requests
-from cau_hinh import ETHERSCAN_API_KEY, ETHERSCAN_API_URL
+from cau_hinh import CauHinh
 
-def _call_etherscan(params: dict, timeout=10):
-    p = params.copy()
-    p["apikey"] = ETHERSCAN_API_KEY
-    try:
-        r = requests.get(ETHERSCAN_API_URL, params=p, timeout=timeout)
-        return r.json()
-    except Exception as e:
-        return {"status":"0", "message": str(e)}
+class PhanTichToken:
 
-def thong_tin_token_contract(contract_address: str):
-    """
-    Lấy dữ liệu mẫu dựa trên tokentx (10 giao dịch gần nhất).
-    Trả dict tóm tắt.
-    """
-    res = {"contract": contract_address, "name": None, "symbol": None, "decimals": None, "totalTransfers_sample": 0, "notes": []}
-    params = {
-        "module": "account",
-        "action": "tokentx",
-        "address": contract_address,
-        "page": 1,
-        "offset": 10,
-        "sort": "desc"
-    }
-    data = _call_etherscan(params)
-    if data.get("status") == "1" and data.get("result"):
-        arr = data["result"]
-        res["totalTransfers_sample"] = len(arr)
-        first = arr[0]
-        res["symbol"] = first.get("tokenSymbol")
-        res["decimals"] = first.get("tokenDecimal")
-        res["name"] = first.get("tokenName")
-        res["notes"].append("Dữ liệu lấy từ tokentx (mẫu 10 tx gần nhất)")
+    def __init__(self):
+        self.api_url = CauHinh.BLOCKCHAIN_API_URL
+        self.api_key = CauHinh.BLOCKCHAIN_API_KEY
+
+    def lay_giao_dich_moi(self, address, start_block=0):
+        """
+        Lấy giao dịch mới của 1 địa chỉ ví trên Ethereum (Etherscan API)
+        """
+        params = {
+            "module": "account",
+            "action": "txlist",
+            "address": address,
+            "startblock": start_block,
+            "endblock": 99999999,
+            "sort": "asc",
+            "apikey": self.api_key
+        }
+        try:
+            response = requests.get(self.api_url, params=params, timeout=10)
+            data = response.json()
+            if data["status"] == "1":
+                return data["result"]
+            else:
+                print("API blockchain trả về lỗi:", data.get("message"))
+                return []
+        except Exception as e:
+            print("Lỗi khi gọi API blockchain:", e)
+            return []
+
+    def phan_tich_giao_dich(self, tx):
+        """
+        Phân tích giao dịch đơn lẻ
+        Trả về dict kết quả phân tích hoặc cảnh báo
+        """
+        # Ví dụ giả lập: nếu giao dịch có giá trị lớn hơn 10 ETH thì cảnh báo
+        value_eth = int(tx["value"]) / 1e18
+        result = {
+            "tx_hash": tx["hash"],
+            "from": tx["from"],
+            "to": tx["to"],
+            "value_eth": value_eth,
+            "is_high_value": value_eth > 10
+        }
+        return result
     else:
         res["notes"].append("Không có tokentx dữ liệu hoặc lỗi API")
     return res
