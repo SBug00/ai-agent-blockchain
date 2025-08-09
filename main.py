@@ -1,82 +1,68 @@
+import os
 import time
-import schedule
+import requests
+from telegram import Bot
+from dotenv import load_dotenv
 
-from cau_hinh import CauHinh
-from bo_nho import BoNho
-from phan_tich_token import PhanTichToken
-from canh_bao_telegram import CanhBaoTelegram
+# Load biến môi trường từ .env khi chạy local
+load_dotenv()
 
-# Địa chỉ ví cần giám sát, bạn thay đổi nếu muốn
-WATCH_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"  # Ví dụ là ví của Binance
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY")
 
-def job():
-    print("Bắt đầu chạy kiểm tra giao dịch mới...")
-    bo_nho = BoNho()
-    ptt = PhanTichToken()
-    telegram = CanhBaoTelegram()
+if not TELEGRAM_TOKEN or not CHAT_ID or not ETHERSCAN_API_KEY:
+    raise ValueError("❌ Thiếu biến môi trường cần thiết!")
 
-    transactions = ptt.lay_giao_dich_moi(WATCH_ADDRESS)
+bot = Bot(token=TELEGRAM_TOKEN)
 
-    if not transactions:
-        print("Không lấy được giao dịch mới.")
+# Danh sách ví cần theo dõi (có thể hardcode ở bản cơ bản)
+watched_wallets = {
+    "0x742d35Cc6634C0532925a3b844Bc454e4438f44e": "Whale BTC→ETH",
+    "0xDC76CD25977E0a5Ae17155770273aD58648900D3": "Whale USDT"
+}
+
+last_tx_hash = {}
+
+def check_wallet(address, name):
+    """Kiểm tra giao dịch mới của ví"""
+    url = (
+        "https://api.etherscan.io/api"
+        f"?module=account&action=txlist&address={address}"
+        "&startblock=0&endblock=99999999&sort=desc"
+        f"&apikey={ETHERSCAN_API_KEY}"
+    )
+
+    try:
+        resp = requests.get(url, timeout=10).json()
+    except Exception as e:
+        print(f"[Lỗi API] {e}")
         return
 
-    for tx in transactions:
-        tx_hash = tx["hash"]
-        if not bo_nho.has_transaction(tx_hash):
-            ket_qua = ptt.phan_tich_giao_dich(tx)
-            bo_nho.add_transaction(tx_hash)
+    if resp.get("status") != "1" or not resp.get("result"):
+        return
 
-            # Nếu giao dịch giá trị cao -> gửi cảnh báo
-            if ket_qua["is_high_value"]:
-                message = (
-                    f"⚠️ Phát hiện giao dịch lớn!\n"
-                    f"TxHash: {ket_qua['tx_hash']}\n"
-                    f"Từ: {ket_qua['from']}\n"
-                    f"Đến: {ket_qua['to']}\n"
-                    f"Giá trị: {ket_qua['value_eth']:.2f} ETH"
-                )
-                telegram.gui_tin_nhan(message)
-                print("Đã gửi cảnh báo Telegram.")
-    print("Kiểm tra kết thúc.")
+    latest_tx = resp["result"][0]
+    tx_hash = latest_tx["hash"]
+    value_eth = int(latest_tx["value"]) / 10**18
 
-def main():
-    print("AI agent bắt đầu chạy...")
-    job()  # Chạy lần đầu
-    schedule.every(CauHinh.POLL_INTERVAL_SECONDS).seconds.do(job)
+    # Cảnh báo nếu giao dịch mới và >= 100 ETH
+    if last_tx_hash.get(address) != tx_hash and value_eth >= 100:
+        last_tx_hash[address] = tx_hash
+        msg = (
+            f"🚨 Giao dịch lớn từ {name}\n"
+            f"💰 {value_eth} ETH\n"
+            f"🔗 https://etherscan.io/tx/{tx_hash}"
+        )
+        try:
+            bot.send_message(chat_id=CHAT_ID, text=msg)
+            print(f"[Cảnh báo] {msg}")
+        except Exception as e:
+            print(f"[Lỗi gửi Telegram] {e}")
 
+if __name__ == "__main__":
+    print("✅ Bot cảnh báo ví cá voi đang chạy...")
     while True:
-        schedule.run_pending()
-        time.sleep(1)
-
-if __name__ == "__main__":
-    main()
-def home():
-    return "AI Agent (Render) — alive"
-
-@app.route("/scan/<addr>")
-def scan(addr):
-    ph = phan_tich_co_ban_token(addr)
-    item_id = them_item("manual_scan", ph)
-    txt = f"Scan id={item_id} addr={addr} suspicious={ph.get('suspicious')} reasons={ph.get('reasons')}"
-    gui_telegram(txt)
-    return txt, 200
-
-if __name__ == "__main__":
-    # khởi tạo memory file nếu chưa có
-    khoi_tao_bo_nho()
-
-    # start thread quét nền
-    t = threading.Thread(target=vong_quet, daemon=True)
-    t.start()
-
-    # start bot polling trong thread khác
-    def bot_thread():
-        bot.infinity_polling(timeout=10, long_polling_timeout=5)
-
-    pb = threading.Thread(target=bot_thread, daemon=True)
-    pb.start()
-
-    # run Flask app (Render cung cấp PORT env)
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+        for addr, name in watched_wallets.items():
+            check_wallet(addr, name)
+        time.sleep(60)  # kiểm tra mỗi phút
