@@ -5,7 +5,7 @@ from telegram import Bot
 from dotenv import load_dotenv
 
 # Load biến môi trường từ .env khi chạy local
-load_dotenv()
+#load_dotenv()
 
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
